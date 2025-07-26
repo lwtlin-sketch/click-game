@@ -310,18 +310,21 @@
             oscillator.stop(audioContext.currentTime + duration);
         }
 
-        // --- 事件監聽 ---
+        // --- 事件監聽 (新的程式碼，優化多點觸控) ---
         startBtn.addEventListener('click', startGame);
         playAgainBtn.addEventListener('click', resetGame);
         increaseTimeBtn.addEventListener('click', () => changeTime(5));
         decreaseTimeBtn.addEventListener('click', () => changeTime(-5));
 
-        const handlePlayerClick = (playerNumber, event) => {
+        const processClick = (x, y, targetZone) => {
             if (!isGameActive) return;
             
+            const playerNumber = (targetZone === player1.zone) ? 1 : 2;
+            const eventMock = { clientX: x, clientY: y }; // For click effect
+
             // 播放音效和動畫
-            playSound('click', playerNumber === 1 ? 880 : 987, 0.1); // 不同玩家不同音高
-            createClickEffect(event, playerNumber === 1 ? player1.zone : player2.zone);
+            playSound('click', playerNumber === 1 ? 880 : 987, 0.1);
+            createClickEffect(eventMock, targetZone);
 
             if (playerNumber === 1) {
                 score1++;
@@ -333,10 +336,27 @@
             updateInGameStatus();
         };
 
-        player1.zone.addEventListener('touchstart', (e) => { e.preventDefault(); handlePlayerClick(1, e.touches[0]); });
-        player1.zone.addEventListener('mousedown', (e) => { e.preventDefault(); handlePlayerClick(1, e); });
-        player2.zone.addEventListener('touchstart', (e) => { e.preventDefault(); handlePlayerClick(2, e.touches[0]); });
-        player2.zone.addEventListener('mousedown', (e) => { e.preventDefault(); handlePlayerClick(2, e); });
+        // 統一由 game-container 處理所有點擊事件
+        const gameContainer = document.querySelector('.game-container');
+
+        gameContainer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            const targetZone = e.target.closest('.player-zone');
+            if (targetZone) {
+                processClick(e.clientX, e.clientY, targetZone);
+            }
+        });
+
+        gameContainer.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            // 處理所有同時發生的觸控點
+            for (let touch of e.changedTouches) {
+                 const targetZone = document.elementFromPoint(touch.clientX, touch.clientY).closest('.player-zone');
+                 if (targetZone) {
+                    processClick(touch.clientX, touch.clientY, targetZone);
+                 }
+            }
+        }, { passive: false });
 
         // --- 遊戲邏輯函式 ---
 
